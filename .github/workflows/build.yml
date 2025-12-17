@@ -3,8 +3,7 @@ name: Build ASP Calendar
 on:
   workflow_dispatch:
   schedule:
-    # Runs daily. GitHub cron is UTC.
-    - cron: "5 13 * * *"
+    - cron: "0 12 * * *" # daily @ 12:00 UTC = 8:00am ET (most of the year)
 
 permissions:
   contents: write
@@ -17,7 +16,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout (full history)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -27,21 +26,19 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install requests feedparser
-
       - name: Generate calendar
         run: python generate_asp_ics.py
 
-      - name: Commit calendar
+      - name: Commit & push if changed
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
 
+          # Make sure we are up to date (prevents "fetch first" failures)
           git pull --rebase origin main
 
           git add docs/asp.ics
-          git diff --cached --quiet && echo "No changes to commit" && exit 0
+          git diff --cached --quiet && echo "No changes to commit." && exit 0
 
           git commit -m "Update asp.ics"
           git push origin HEAD:main
