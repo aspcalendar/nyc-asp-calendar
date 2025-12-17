@@ -7,6 +7,7 @@ import os
 
 SRC = "https://www.nyc.gov/apps/311/311Today.rss"
 OUT = "docs/asp.ics"
+TZID = "America/New_York"
 
 def iso_date(s):
     try:
@@ -27,7 +28,7 @@ def uid_for(day, summary):
 def main():
     feed = feedparser.parse(requests.get(SRC, timeout=30).text)
 
-    events = []
+    suspensions = []
     for e in feed.entries:
         day = iso_date(e.get("dc_coverage", "") or "")
         if not day:
@@ -39,34 +40,35 @@ def main():
         else:
             html = e.get("summary", "") or ""
 
-        text = html.replace("<br />", "\n").replace("<br/>", "\n")
+        text = html.replace("<br />", "\n").replace("<br/>", "\n").replace("<br>", "\n")
         status = find_asp_status(text)
         if not status:
             continue
 
         if "suspend" in status.lower():
-            summary = "NYC ASP: Suspended"
-        else:
-            summary = "NYC ASP: In Effect"
-
-        events.append((day, summary, status))
+            suspensions.append((day, status))
 
     os.makedirs("docs", exist_ok=True)
 
     now = dt.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+
     lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
-        "PRODID:-//NYC ASP Live//EN",
+        "PRODID:-//NYC ASP Suspended Alerts//EN",
         "CALSCALE:GREGORIAN",
-        "X-WR-CALNAME:NYC Alternate Side Parking (Live)",
+        "METHOD:PUBLISH",
+        "X-WR-CALNAME:NYC ASP Suspended (All-Day + 8AM Alert)",
+        f"X-WR-TIMEZONE:{TZID}",
     ]
 
     seen = set()
-    for day, summary, desc in sorted(events):
+    for day, status in sorted(suspensions):
         if day in seen:
             continue
         seen.add(day)
+
+        summary = "🚫🅿️ ASP SUSPENDED"
 
         lines += [
             "BEGIN:VEVENT",
@@ -75,13 +77,18 @@ def main():
             f"DTSTART;VALUE=DATE:{day.strftime('%Y%m%d')}",
             f"DTEND;VALUE=DATE:{(day + dt.timedelta(days=1)).strftime('%Y%m%d')}",
             f"SUMMARY:{summary}",
-            f"DESCRIPTION:{desc}",
+            f"DESCRIPTION:{status}",
+            "BEGIN:VALARM",
+            "TRIGGER:PT8H",  # 8 hours after 12:00 AM local = 8:00 AM
+            "ACTION:DISPLAY",
+            "DESCRIPTION:🚫🅿️ NYC Alternate Side Parking is SUSPENDED today.",
+            "END:VALARM",
             "END:VEVENT",
         ]
 
     lines.append("END:VCALENDAR")
 
-    with open(OUT, "w", encoding="utf-8") as f:
+    with open(OUT, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines))
 
 if __name__ == "__main__":
