@@ -7,7 +7,7 @@ import os
 
 SRC = "https://www.nyc.gov/apps/311/311Today.rss"
 OUT = "docs/asp.ics"
-TEST_MODE = False  # set True to create a test suspended event for today
+TEST_MODE = True  # set True to create a test suspended event for today
 TZID = "America/New_York"
 
 def iso_date(s):
