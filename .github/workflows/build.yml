@@ -3,14 +3,16 @@ name: Build ASP Calendar
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 12 * * *" # daily @ 12:00 UTC = 8:00am ET (most of the year)
-
-permissions:
-  contents: write
+    # 8:00 AM ET daily = 13:00 UTC during standard time; 12:00 UTC during daylight time.
+    # If you want it always 8am NY time year-round, we can adjust with two cron entries later.
+    - cron: "0 13 * * *"
 
 concurrency:
   group: asp-calendar
   cancel-in-progress: true
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -21,24 +23,30 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Sync with origin/main (before generating)
+        run: |
+          git fetch origin main
+          git reset --hard origin/main
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install requests
 
       - name: Generate calendar
         run: python generate_asp_ics.py
 
       - name: Commit & push if changed
         run: |
+          git add docs/asp.ics
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-
-          # Make sure we are up to date (prevents "fetch first" failures)
-          git pull --rebase origin main
-
-          git add docs/asp.ics
-          git diff --cached --quiet && echo "No changes to commit." && exit 0
-
           git commit -m "Update asp.ics"
-          git push origin HEAD:main
+          git push
