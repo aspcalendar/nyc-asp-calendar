@@ -1,4 +1,10 @@
+concurrency:
+  group: asp-ics
+  cancel-in-progress: true
 name: Build ASP Calendar
+
+permissions:
+  contents: write
 
 on:
   schedule:
@@ -29,6 +35,20 @@ jobs:
       - name: Generate calendar
         run: |
           python generate_asp_ics.py
+          - name: Commit calendar
+        run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+    
+        # update local branch so push doesn't fail with "fetch first"
+        git pull --rebase origin main
+    
+        git add docs/asp.ics
+        git diff --cached --quiet && echo "No changes to commit" && exit 0
+    
+        git commit -m "Update asp.ics"
+        git push origin HEAD:main
+
 
       # NO git commit / NO git push
       # GitHub Pages will serve docs/asp.ics directly
