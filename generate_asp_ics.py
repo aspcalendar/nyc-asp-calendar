@@ -7,6 +7,7 @@ import os
 
 SRC = "https://www.nyc.gov/apps/311/311Today.rss"
 OUT = "docs/asp.ics"
+TEST_MODE = False  # set True to create a test suspended event for today
 TZID = "America/New_York"
 
 def iso_date(s):
@@ -86,7 +87,25 @@ def main():
             "END:VEVENT",
         ]
 
-    lines.append("END:VCALENDAR")
+        if TEST_MODE:
+        day = dt.date.today()
+        summary = "🚫🅿️ TEST: ASP SUSPENDED"
+        lines += [
+            "BEGIN:VEVENT",
+            f"UID:{uid_for(day, summary)}",
+            f"DTSTAMP:{now}",
+            f"DTSTART;VALUE=DATE:{day.strftime('%Y%m%d')}",
+            f"DTEND;VALUE=DATE:{(day + dt.timedelta(days=1)).strftime('%Y%m%d')}",
+            f"SUMMARY:{summary}",
+            "DESCRIPTION:Test event to verify alerts/subscription.",
+            "BEGIN:VALARM",
+            "TRIGGER:PT8H",
+            "ACTION:DISPLAY",
+            "DESCRIPTION:🚫🅿️ Test alert at 8AM ET.",
+            "END:VALARM",
+            "END:VEVENT",
+        ]
+lines.append("END:VCALENDAR")
 
     with open(OUT, "w", encoding="utf-8", newline="\n") as f:
         f.write("\n".join(lines))
