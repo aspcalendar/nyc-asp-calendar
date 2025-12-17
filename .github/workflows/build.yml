@@ -5,14 +5,18 @@ on:
     - cron: "*/30 * * * *"
   workflow_dispatch:
 
-permissions:
-  contents: write
+concurrency:
+  group: asp-calendar
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -23,19 +27,8 @@ jobs:
         run: pip install requests feedparser
 
       - name: Generate calendar
-        run: python generate_asp_ics.py
-
-        - name: Commit calendar
         run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
+          python generate_asp_ics.py
 
-          # Make sure we're up to date with main before committing/pushing
-          git fetch origin main
-          git checkout main
-          git pull --rebase origin main
-
-          git add docs/asp.ics
-          git commit -m "Update asp.ics" || echo "No changes"
-          git push origin main
-
+      # NO git commit / NO git push
+      # GitHub Pages will serve docs/asp.ics directly
